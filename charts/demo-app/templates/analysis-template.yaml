@@ -1,0 +1,23 @@
+apiVersion: argoproj.io/v1alpha1
+kind: AnalysisTemplate
+metadata:
+  name: demo-error-rate
+  labels:
+    {{- include "demo-app.labels" . | nindent 4 }}
+spec:
+  args:
+    - name: canary-version
+  metrics:
+    - name: http-5xx-error-ratio
+      interval: {{ .Values.rollout.analysis.interval }}
+      count: {{ .Values.rollout.analysis.count }}
+      failureLimit: {{ .Values.rollout.analysis.failureLimit }}
+      successCondition: result[0] < {{ .Values.rollout.analysis.errorRateThreshold }}
+      provider:
+        prometheus:
+          address: http://kube-prometheus-stack-prometheus.monitoring.svc.cluster.local:9090
+          query: |
+            (
+              sum(rate(http_requests_total{namespace="demo",version="{{ "{{" }}args.canary-version{{ "}}" }}",status_code=~"5.."}[2m]))
+              / clamp_min(sum(rate(http_requests_total{namespace="demo",version="{{ "{{" }}args.canary-version{{ "}}" }}",endpoint!="metrics"}[2m])), 0.001)
+            ) or vector(0)

@@ -1,0 +1,50 @@
+replicaCount: 4
+
+image:
+  # Replace with your published GHCR image, for example ghcr.io/yourowner/gitops-platform-demo.
+  repository: ghcr.io/your-github-owner/gitops-platform-demo
+  # Update this to the immutable sha-<short-sha> tag published by GitHub Actions.
+  tag: replace-me
+  pullPolicy: IfNotPresent
+
+# For private GHCR packages, create this Kubernetes Secret in the demo namespace
+# and set e.g. [{ name: ghcr-pull-secret }]. Keep the token out of Git.
+imagePullSecrets: []
+
+nameOverride: ""
+fullnameOverride: "demo-app"
+
+service:
+  type: ClusterIP
+  port: 80
+  targetPort: http
+
+
+rollout:
+  maxSurge: 25%
+  maxUnavailable: 0
+  analysis:
+    errorRateThreshold: 0.05
+    interval: 30s
+    count: 3
+    failureLimit: 1
+
+metrics:
+  serviceMonitor:
+    enabled: true
+    interval: 15s
+    scrapeTimeout: 5s
+    additionalLabels:
+      release: kube-prometheus-stack
+
+resources:
+  requests:
+    cpu: 50m
+    memory: 64Mi
+  limits:
+    cpu: 250m
+    memory: 128Mi
+
+nodeSelector: {}
+tolerations: []
+affinity: {}

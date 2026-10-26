@@ -1,0 +1,78 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: monitoring
+  namespace: argocd
+spec:
+  project: platform
+  source:
+    repoURL: https://prometheus-community.github.io/helm-charts
+    chart: kube-prometheus-stack
+    targetRevision: 92.10.1
+    helm:
+      releaseName: kube-prometheus-stack
+      valuesObject:
+        grafana:
+          enabled: true
+          admin:
+            existingSecret: grafana-admin
+            userKey: admin-user
+            passwordKey: admin-password
+          # Ephemeral for the low-cost portfolio setup; enable persistence only after configuring EBS CSI.
+          persistence:
+            enabled: false
+        prometheus:
+          prometheusSpec:
+            retention: 7d
+            serviceMonitorSelectorNilUsesHelmValues: false
+            serviceMonitorNamespaceSelector: {}
+            serviceMonitorSelector: {}
+            ruleSelectorNilUsesHelmValues: false
+            ruleNamespaceSelector: {}
+            ruleSelector: {}
+        alertmanager:
+          enabled: true
+          alertmanagerSpec:
+            secrets:
+              - alertmanager-slack
+          config:
+            global:
+              resolve_timeout: 5m
+            route:
+              receiver: slack-webhook
+              group_by: ["alertname", "namespace"]
+              group_wait: 30s
+              group_interval: 5m
+              repeat_interval: 4h
+            receivers:
+              - name: slack-webhook
+                slack_configs:
+                  - api_url_file: /etc/alertmanager/secrets/alertmanager-slack/url
+                    channel: "#platform-alerts"
+                    send_resolved: true
+        additionalPrometheusRulesMap:
+          gitops-platform-alerts:
+            groups:
+              - name: gitops-platform-app
+                rules:
+                  - alert: DemoAppHigh5xxErrorRate
+                    expr: |
+                      (
+                        sum(rate(http_requests_total{namespace="demo",status_code=~"5.."}[2m]))
+                        / clamp_min(sum(rate(http_requests_total{namespace="demo",endpoint!="metrics"}[2m])), 0.001)
+                      ) > 0.05
+                    for: 2m
+                    labels:
+                      severity: critical
+                    annotations:
+                      summary: Demo app HTTP 5xx ratio is above 5 percent
+                      description: The demo application has exceeded the configured 5xx error-ratio threshold for two minutes.
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: monitoring
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

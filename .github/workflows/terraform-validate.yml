@@ -1,0 +1,40 @@
+name: Terraform validation
+
+on:
+  pull_request:
+    paths:
+      - "terraform/**"
+      - "env/*.tfvars"
+      - ".github/workflows/terraform-validate.yml"
+  push:
+    branches: [main]
+    paths:
+      - "terraform/**"
+      - "env/*.tfvars"
+      - ".github/workflows/terraform-validate.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.13.5
+      - name: Check formatting
+        run: terraform fmt -check -recursive terraform
+      - name: Initialize platform root without backend
+        working-directory: terraform/environments/platform
+        run: terraform init -backend=false
+      - name: Validate platform root
+        working-directory: terraform/environments/platform
+        run: terraform validate
+      - name: Initialize state bootstrap without backend
+        working-directory: terraform/bootstrap-state
+        run: terraform init -backend=false
+      - name: Validate state bootstrap root
+        working-directory: terraform/bootstrap-state
+        run: terraform validate

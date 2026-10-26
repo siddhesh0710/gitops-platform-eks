@@ -1,0 +1,6 @@
+apiVersion: v2
+name: demo-app
+description: Demo app packaged as a Helm chart with Argo Rollouts canary analysis
+type: application
+version: 0.1.0
+appVersion: "1.0.0"

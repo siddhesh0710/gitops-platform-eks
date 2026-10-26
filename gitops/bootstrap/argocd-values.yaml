@@ -1,0 +1,20 @@
+# Minimal single-replica footprint for a portfolio/dev cluster.
+# Use HA settings, external Redis, SSO, and ingress/TLS for production.
+redis-ha:
+  enabled: false
+
+controller:
+  replicas: 1
+
+server:
+  replicas: 1
+  service:
+    type: ClusterIP
+  ingress:
+    enabled: false
+
+repoServer:
+  replicas: 1
+
+applicationSet:
+  replicas: 1
